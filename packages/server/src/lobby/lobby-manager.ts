@@ -8,7 +8,7 @@ import {
   MAX_PLAYERS,
   MIN_PLAYERS,
 } from '@meltdown/shared';
-import { sendTo, broadcast, isConnected } from '../ws/message-router.js';
+import { sendTo, broadcast, isConnected, getAllConnectedIds } from '../ws/message-router.js';
 
 interface Room {
   id: string;
@@ -241,8 +241,8 @@ function sendRoomUpdate(room: Room): void {
 
 export function broadcastLobbyList(): void {
   const list = getRoomList();
-  // Send to all connected players not in rooms (lobby browsers)
-  // For simplicity, we'll have the caller handle this
+  const lobbyBrowsers = getAllConnectedIds().filter(id => !playerRooms.has(id));
+  broadcast(lobbyBrowsers, { type: 'lobby-list', rooms: list });
 }
 
 export function getRoomList(): RoomInfo[] {

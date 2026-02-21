@@ -59,6 +59,13 @@ export function isConnected(playerId: string): boolean {
   return ws !== undefined && ws.readyState === WebSocket.OPEN;
 }
 
+export function getAllConnectedIds(): string[] {
+  return [...connections.keys()].filter(id => {
+    const ws = connections.get(id);
+    return ws && ws.readyState === WebSocket.OPEN;
+  });
+}
+
 export function disconnectPlayer(playerId: string): void {
   const ws = connections.get(playerId);
   if (ws) {
