@@ -38,22 +38,22 @@ export function validateAction(
   // Action-specific validation
   switch (action.kind) {
     case 'set-control-rods':
-      if (action.position < 0 || action.position > 100) {
+      if (!Number.isFinite(action.position) || action.position < 0 || action.position > 100) {
         return { valid: false, reason: 'Control rod position must be 0-100' };
       }
       break;
     case 'set-power':
-      if (action.level < 0 || action.level > 100) {
+      if (!Number.isFinite(action.level) || action.level < 0 || action.level > 100) {
         return { valid: false, reason: 'Power level must be 0-100' };
       }
       break;
     case 'set-shield-power':
-      if (action.level < 0 || action.level > 100) {
+      if (!Number.isFinite(action.level) || action.level < 0 || action.level > 100) {
         return { valid: false, reason: 'Shield power must be 0-100' };
       }
       break;
     case 'set-coolant-flow':
-      if (action.level < 0 || action.level > 100) {
+      if (!Number.isFinite(action.level) || action.level < 0 || action.level > 100) {
         return { valid: false, reason: 'Coolant flow must be 0-100' };
       }
       break;
@@ -87,11 +87,11 @@ export function applyAction(action: GameAction, state: GameState): void {
 
   switch (action.kind) {
     case 'set-control-rods':
-      r.controlRodPosition = action.position;
+      r.controlRodPosition = Math.max(0, Math.min(100, action.position));
       break;
     case 'set-power':
       // Adjust control rods inversely
-      r.controlRodPosition = 100 - action.level;
+      r.controlRodPosition = Math.max(0, Math.min(100, 100 - action.level));
       break;
     case 'scram':
       // Emergency shutdown - slam all rods in
@@ -115,7 +115,7 @@ export function applyAction(action: GameAction, state: GameState): void {
       r.coolantLevel = Math.min(100, r.coolantLevel + 25);
       break;
     case 'set-coolant-flow':
-      r.coolantFlow = action.level;
+      r.coolantFlow = Math.max(0, Math.min(100, action.level));
       break;
     case 'calibrate-sensor':
       // Improves sensor accuracy - handled by client filtering
@@ -124,7 +124,7 @@ export function applyAction(action: GameAction, state: GameState): void {
       // Shows hidden info - handled by client
       break;
     case 'set-shield-power':
-      r.shieldStrength = Math.min(100, action.level);
+      r.shieldStrength = Math.max(0, Math.min(100, action.level));
       break;
     case 'vent-pressure':
       r.pressure = Math.max(0, r.pressure - 15);
