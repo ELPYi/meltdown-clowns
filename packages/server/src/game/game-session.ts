@@ -16,6 +16,17 @@ import {
 } from '@meltdown/shared';
 import { broadcast, sendTo } from '../ws/message-router.js';
 
+/** Minimum seconds between uses of each action, per player. */
+const ACTION_COOLDOWNS: Partial<Record<string, number>> = {
+  'refill-coolant': 15,
+  'emergency-coolant': 45,
+  'authorize-protocol': 30,
+  'repair-subsystem': 8,
+  'vent-pressure': 8,
+  'toggle-fire-suppression': 5,
+  'scram': 10,
+};
+
 export class GameSession {
   readonly sessionId: string;
   readonly roomId: string;
@@ -25,6 +36,11 @@ export class GameSession {
   private playerIds: string[];
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private onGameOver: (session: GameSession) => void;
+
+  /** gameTime of last use per player per action kind, for cooldown enforcement. */
+  private playerCooldowns = new Map<string, Map<string, number>>();
+  /** gameTime of last use per player per action kind, for event resolution gating. */
+  private playerLastAction = new Map<string, Map<string, number>>();
 
   constructor(
     roomId: string,
@@ -75,6 +91,37 @@ export class GameSession {
     const roles = this.playerRoles.get(playerId);
     if (!roles) return;
 
+    // --- Cooldown check ---
+    const cooldownSec = ACTION_COOLDOWNS[action.kind];
+    if (cooldownSec !== undefined) {
+      const cds = this.playerCooldowns.get(playerId) ?? new Map<string, number>();
+      const lastUsed = cds.get(action.kind) ?? -Infinity;
+      const remaining = cooldownSec - (this.state.gameTime - lastUsed);
+      if (remaining > 0) {
+        sendTo(playerId, {
+          type: 'error',
+          message: `${action.kind} on cooldown — ${remaining.toFixed(1)}s remaining`,
+        });
+        return;
+      }
+    }
+
+    // --- Event resolution gate: required action must have been performed ---
+    if (action.kind === 'resolve-event') {
+      const event = this.state.activeEvents.find(e => e.id === action.eventId);
+      if (event && !event.resolved) {
+        const lastActions = this.playerLastAction.get(playerId) ?? new Map<string, number>();
+        const lastReqAt = lastActions.get(event.requiredAction) ?? -1;
+        if (lastReqAt < event.startTime) {
+          sendTo(playerId, {
+            type: 'error',
+            message: `Perform ${event.requiredAction} first to resolve this event`,
+          });
+          return;
+        }
+      }
+    }
+
     const validation = validateAction(action, roles, this.state);
     if (!validation.valid) {
       sendTo(playerId, {
@@ -85,6 +132,22 @@ export class GameSession {
     }
 
     applyAction(action, this.state);
+
+    // Track last-action time for event resolution gating
+    if (action.kind !== 'resolve-event') {
+      if (!this.playerLastAction.has(playerId)) {
+        this.playerLastAction.set(playerId, new Map());
+      }
+      this.playerLastAction.get(playerId)!.set(action.kind, this.state.gameTime);
+    }
+
+    // Record cooldown timestamp
+    if (cooldownSec !== undefined) {
+      if (!this.playerCooldowns.has(playerId)) {
+        this.playerCooldowns.set(playerId, new Map());
+      }
+      this.playerCooldowns.get(playerId)!.set(action.kind, this.state.gameTime);
+    }
   }
 
   handleDisconnect(playerId: string): void {
