@@ -40,13 +40,15 @@ export const EVENT_RAMP_UP = 7;
 /** Event fade duration in seconds */
 export const EVENT_FADE = 5;
 
-/** Difficulty scaling by player count */
+/** Difficulty scaling by player count.
+ *  More players → more events (keeps everyone busy), but resolution time doesn't shrink —
+ *  extra hands should compensate for the higher event load. */
 export const DIFFICULTY_SCALE: Record<number, { eventMultiplier: number; resolutionTimeMultiplier: number }> = {
-  2: { eventMultiplier: 0.6, resolutionTimeMultiplier: 1.5 },
-  3: { eventMultiplier: 0.8, resolutionTimeMultiplier: 1.25 },
+  2: { eventMultiplier: 0.6, resolutionTimeMultiplier: 1.4 },
+  3: { eventMultiplier: 0.8, resolutionTimeMultiplier: 1.2 },
   4: { eventMultiplier: 1.0, resolutionTimeMultiplier: 1.0 },
-  5: { eventMultiplier: 1.15, resolutionTimeMultiplier: 0.9 },
-  6: { eventMultiplier: 1.3, resolutionTimeMultiplier: 0.8 },
+  5: { eventMultiplier: 1.2, resolutionTimeMultiplier: 1.0 },
+  6: { eventMultiplier: 1.4, resolutionTimeMultiplier: 1.0 },
 };
 
 /** WebSocket server port */
@@ -54,3 +56,18 @@ export const DEFAULT_PORT = 3001;
 
 /** Max particle count for performance */
 export const MAX_PARTICLES = 500;
+
+/** Max simultaneous unresolved active events (prevents cascade DoS) */
+export const MAX_ACTIVE_EVENTS = 15;
+
+/** Broadcast game state every N ticks (5 Hz at 20 Hz tick rate) */
+export const STATE_BROADCAST_INTERVAL = 4;
+
+/** Seconds of noise on sensor displays after a SensorMalfunction consequence */
+export const SENSOR_NOISE_TTL = 45;
+
+/** Seconds before an AI takes over a disconnected player's role */
+export const AI_TAKEOVER_DELAY_S = 30;
+
+/** Cooldown in seconds between callout messages, per player */
+export const CALLOUT_COOLDOWN_S = 5;

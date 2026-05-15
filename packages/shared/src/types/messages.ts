@@ -1,5 +1,5 @@
 import { Role } from './roles.js';
-import { GameState } from './game-state.js';
+import { GameState, GamePhase } from './game-state.js';
 
 // ---- Client -> Server Messages ----
 
@@ -65,9 +65,10 @@ export type GameAction =
   | { kind: 'set-shield-power'; level: number }
   | { kind: 'vent-pressure' }
   | { kind: 'emergency-coolant' }
-  | { kind: 'authorize-protocol'; protocolId: string }
+  | { kind: 'authorize-protocol'; protocolId: 'containment-restore' | 'radiation-flush' | 'power-reroute' }
   | { kind: 'resolve-event'; eventId: string }
-  | { kind: 'set-coolant-flow'; level: number };
+  | { kind: 'set-coolant-flow'; level: number }
+  | { kind: 'callout'; text: string };
 
 // ---- Server -> Client Messages ----
 
@@ -78,7 +79,11 @@ export type ServerMessage =
   | GameStartMessage
   | GameStateMessage
   | GameOverMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | PhaseChangeMessage
+  | DiagnosticResultMessage
+  | CalloutMessage
+  | PlayerDisconnectedMessage;
 
 export interface PongMessage {
   type: 'pong';
@@ -151,4 +156,34 @@ export interface ErrorMessage {
   type: 'error';
   message: string;
   code?: string;
+}
+
+export interface PhaseChangeMessage {
+  type: 'phase-change';
+  phase: GamePhase;
+  phaseName: string;
+}
+
+export interface DiagnosticRisk {
+  metric: string;
+  value: number;
+  status: 'warning' | 'critical';
+}
+
+export interface DiagnosticResultMessage {
+  type: 'diagnostic-result';
+  risks: DiagnosticRisk[];
+  mostAtRiskSubsystem: string | null;
+}
+
+export interface CalloutMessage {
+  type: 'callout';
+  fromRole: Role;
+  text: string;
+}
+
+export interface PlayerDisconnectedMessage {
+  type: 'player-disconnected';
+  roles: Role[];
+  aiControlled: boolean;
 }

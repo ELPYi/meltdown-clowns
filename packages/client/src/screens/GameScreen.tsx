@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { useGameStore } from '../stores/game-store.js';
 import { Role, ROLE_LABELS, PHASE_NAMES, GamePhase } from '@meltdown/shared';
 import { ReactorDisplay } from '../components/reactor-display/ReactorDisplay.js';
@@ -9,14 +9,34 @@ import { SafetyOfficerPanel } from '../components/panels/SafetyOfficerPanel.js';
 import { CombinedPanel } from '../components/panels/CombinedPanel.js';
 import { useGameAudio } from '../audio/useGameAudio.js';
 
+const PHASE_ALERT_DURATION_MS = 4000;
+
+const PHASE_COLORS: Record<GamePhase, string> = {
+  [GamePhase.StableOperations]: 'var(--safe)',
+  [GamePhase.AnomaliesDetected]: 'var(--warning)',
+  [GamePhase.CascadeWarning]: '#ff8c00',
+  [GamePhase.CriticalMeltdown]: 'var(--danger)',
+  [GamePhase.FinalCountdown]: 'var(--danger)',
+};
+
 export function GameScreen() {
   const gameState = useGameStore(s => s.gameState);
   const assignedRoles = useGameStore(s => s.assignedRoles);
   const gameOver = useGameStore(s => s.gameOver);
   const won = useGameStore(s => s.won);
+  const phaseAlert = useGameStore(s => s.phaseAlert);
+  const clearPhaseAlert = useGameStore(s => s.clearPhaseAlert);
+  const callouts = useGameStore(s => s.callouts);
+  const disconnectedRoles = useGameStore(s => s.disconnectedRoles);
 
-  // Drive all reactive audio (ambient, alarms, phase transitions, game over)
   useGameAudio(gameState, gameOver, won);
+
+  // Auto-dismiss phase alert
+  useEffect(() => {
+    if (!phaseAlert) return;
+    const t = setTimeout(clearPhaseAlert, PHASE_ALERT_DURATION_MS);
+    return () => clearTimeout(t);
+  }, [phaseAlert, clearPhaseAlert]);
 
   if (!gameState) {
     return (
@@ -37,6 +57,30 @@ export function GameScreen() {
 
   return (
     <div className="game-screen">
+      {/* Phase transition alert */}
+      {phaseAlert && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+          background: PHASE_COLORS[phaseAlert.phase],
+          color: '#000', textAlign: 'center', padding: '12px 0',
+          fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: 2,
+          animation: 'blink 0.4s step-start 3',
+        }}>
+          ⚠ PHASE TRANSITION: {phaseAlert.phaseName.toUpperCase()}
+        </div>
+      )}
+
+      {/* Disconnected player banner */}
+      {disconnectedRoles.length > 0 && (
+        <div style={{
+          background: '#5a1a00', color: 'var(--warning)', padding: '4px 12px',
+          fontSize: '0.75rem', textAlign: 'center', borderBottom: '1px solid var(--warning)',
+        }}>
+          PLAYER DISCONNECTED — roles offline: {disconnectedRoles.map(r => ROLE_LABELS[r]).join(', ')}
+          {gameState.disconnectedRoles.length > 0 && ' (AI assist active)'}
+        </div>
+      )}
+
       {/* Status Bar */}
       <div className="status-bar">
         <span className="phase-name">{PHASE_NAMES[gameState.phase]}</span>
@@ -45,6 +89,18 @@ export function GameScreen() {
           {assignedRoles.map(r => ROLE_LABELS[r]).join(' + ')}
         </span>
       </div>
+
+      {/* Callout feed — last 5 messages, fades after 8s */}
+      {callouts.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 8, left: 8, zIndex: 50,
+          display: 'flex', flexDirection: 'column', gap: 4, pointerEvents: 'none',
+        }}>
+          {callouts.map(c => (
+            <CalloutToast key={c.id} callout={c} />
+          ))}
+        </div>
+      )}
 
       {/* Reactor Visualization */}
       <div className="reactor-status scanlines">
@@ -61,6 +117,21 @@ export function GameScreen() {
           <p>No role assigned</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function CalloutToast({ callout }: { callout: { fromRole: Role; text: string } }) {
+  return (
+    <div style={{
+      background: 'rgba(0,0,0,0.85)', border: '1px solid var(--warning)',
+      borderRadius: 4, padding: '4px 10px', fontSize: '0.78rem', color: 'var(--warning)',
+      maxWidth: 260,
+    }}>
+      <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>
+        [{ROLE_LABELS[callout.fromRole]}]
+      </span>
+      {callout.text}
     </div>
   );
 }

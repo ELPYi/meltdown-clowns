@@ -1,7 +1,7 @@
 import { GameState, GameEvent, EventType } from '../types/game-state.js';
 import { Role } from '../types/roles.js';
 import { SeededRNG } from '../util/rng.js';
-import { TICK_DELTA, DIFFICULTY_SCALE, EVENT_RAMP_UP } from '../util/constants.js';
+import { TICK_DELTA, DIFFICULTY_SCALE, EVENT_RAMP_UP, MAX_ACTIVE_EVENTS, SENSOR_NOISE_TTL } from '../util/constants.js';
 import { getEventFrequency, getSeverityWeights } from './phase-manager.js';
 
 interface CascadeEdge {
@@ -123,6 +123,10 @@ function generateEvent(
   rng: SeededRNG,
   resolutionMultiplier: number
 ): GameEvent | null {
+  // Global cap: don't overwhelm the team beyond what's manageable
+  const totalUnresolved = state.activeEvents.filter(e => !e.resolved && !e.consequenceApplied).length;
+  if (totalUnresolved >= MAX_ACTIVE_EVENTS) return null;
+
   const eventTypes = Object.values(EventType);
   const type = rng.pick(eventTypes);
 
@@ -196,9 +200,20 @@ function applyConsequence(state: GameState, event: GameEvent, rng: SeededRNG): v
       }
       break;
     }
-    case EventType.SensorMalfunction:
-      // Sensors go wonky - handled by client-side display
+    case EventType.SensorMalfunction: {
+      // Inject noise offsets that non-Technician players will see on their gauges
+      const mag = severity * 0.5; // severity: 1=low, 1.5=med, 2=high, 3=crit
+      state.sensorNoise.active = true;
+      state.sensorNoise.ttl = SENSOR_NOISE_TTL;
+      state.sensorNoise.offsets = {
+        temperature: (rng.next() - 0.5) * 200 * mag,
+        pressure:    (rng.next() - 0.5) * 30  * mag,
+        radiation:   (rng.next() - 0.5) * 20  * mag,
+        coolantLevel:(rng.next() - 0.5) * 25  * mag,
+        containment: (rng.next() - 0.5) * 20  * mag,
+      };
       break;
+    }
     case EventType.ContainmentBreach:
       r.containment -= 15 * severity;
       break;
@@ -238,7 +253,11 @@ function generateCascadeEvent(
   parentSeverity: string,
   delay: number
 ): GameEvent | null {
-  // Don't stack too many
+  // Global cap applies to cascades too
+  const totalUnresolved = state.activeEvents.filter(e => !e.resolved && !e.consequenceApplied).length;
+  if (totalUnresolved >= MAX_ACTIVE_EVENTS) return null;
+
+  // Don't stack too many of same type
   const sameTypeActive = state.activeEvents.filter(
     e => e.type === type && !e.resolved && !e.consequenceApplied
   ).length;

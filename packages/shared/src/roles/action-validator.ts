@@ -18,6 +18,7 @@ const ACTION_PERMISSIONS: Record<string, Role[]> = {
   'emergency-coolant': [Role.SafetyOfficer],
   'authorize-protocol': [Role.SafetyOfficer],
   'resolve-event': [Role.ReactorOperator, Role.Engineer, Role.Technician, Role.SafetyOfficer],
+  'callout': [Role.ReactorOperator, Role.Engineer, Role.Technician, Role.SafetyOfficer],
 };
 
 export function validateAction(
@@ -62,8 +63,26 @@ export function validateAction(
       if (!sub) {
         return { valid: false, reason: 'Unknown subsystem' };
       }
+      if (sub.health >= 80 && !sub.onFire) {
+        return { valid: false, reason: 'Subsystem is functioning normally — repair not needed' };
+      }
       break;
     }
+    case 'authorize-protocol': {
+      const validProtocols = ['containment-restore', 'radiation-flush', 'power-reroute'] as const;
+      if (!validProtocols.includes(action.protocolId)) {
+        return { valid: false, reason: 'Unknown protocol' };
+      }
+      break;
+    }
+    case 'callout':
+      if (!action.text || action.text.trim().length === 0) {
+        return { valid: false, reason: 'Callout text cannot be empty' };
+      }
+      if (action.text.length > 100) {
+        return { valid: false, reason: 'Callout text too long' };
+      }
+      break;
     case 'resolve-event': {
       const event = state.activeEvents.find(e => e.id === action.eventId);
       if (!event) {
@@ -118,10 +137,12 @@ export function applyAction(action: GameAction, state: GameState): void {
       r.coolantFlow = Math.max(0, Math.min(100, action.level));
       break;
     case 'calibrate-sensor':
-      // Improves sensor accuracy - handled by client filtering
+      // Clear any active sensor noise — this is what the Technician's calibration does
+      state.sensorNoise.active = false;
+      state.sensorNoise.ttl = 0;
       break;
     case 'run-diagnostic':
-      // Shows hidden info - handled by client
+      // Diagnostic result is computed and sent by game-session; no reactor state change
       break;
     case 'set-shield-power':
       r.shieldStrength = Math.max(0, Math.min(100, action.level));
@@ -136,8 +157,23 @@ export function applyAction(action: GameAction, state: GameState): void {
       r.temperature = Math.max(200, r.temperature - 200);
       break;
     case 'authorize-protocol':
-      // Various emergency protocols
-      r.containment = Math.min(100, r.containment + 20);
+      switch (action.protocolId) {
+        case 'containment-restore':
+          r.containment = Math.min(100, r.containment + 20);
+          break;
+        case 'radiation-flush':
+          // Flush radiation at the cost of some shield integrity
+          r.radiation = Math.max(0, r.radiation - 30);
+          r.shieldStrength = Math.max(0, r.shieldStrength - 10);
+          break;
+        case 'power-reroute':
+          // Emergency power rerouting stabilizes the reactor aggregate score
+          r.stability = Math.min(100, r.stability + 15);
+          break;
+      }
+      break;
+    case 'callout':
+      // Forwarded as a broadcast message by game-session; no reactor state change
       break;
     case 'resolve-event': {
       const event = state.activeEvents.find(e => e.id === action.eventId);
