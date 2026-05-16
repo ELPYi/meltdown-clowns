@@ -147,6 +147,12 @@ function generateEvent(
   const eventTypes = Object.values(EventType);
   const type = rng.pick(eventTypes);
 
+  // Don't spawn shield events when shields are near max — no room to meaningfully boost
+  if (
+    (type === EventType.RadiationLeak || type === EventType.ShieldDegradation) &&
+    state.reactor.shieldStrength >= 90
+  ) return null;
+
   // Don't stack too many events of same type
   const sameTypeActive = state.activeEvents.filter(
     e => e.type === type && !e.resolved && !e.consequenceApplied
@@ -157,6 +163,15 @@ function generateEvent(
   const severity = pickSeverity(rng, severityWeights);
   const baseDeadline = SEVERITY_DEADLINES[severity];
   const deadline = baseDeadline * resolutionMultiplier;
+
+  // SubsystemFailure: pre-damage a subsystem immediately so repair-subsystem becomes
+  // valid right away. Without this, no subsystem is below the 80% repair threshold
+  // until the deadline consequence fires, making the event unresolvable before timeout.
+  if (type === EventType.SubsystemFailure) {
+    const candidates = state.subsystems.filter(s => s.operational && s.health >= 80);
+    if (candidates.length === 0) return null; // Nothing left to damage, skip event
+    rng.pick(candidates).health -= 25;
+  }
 
   eventCounter++;
   return {
@@ -274,6 +289,12 @@ function generateCascadeEvent(
   const totalUnresolved = state.activeEvents.filter(e => !e.resolved && !e.consequenceApplied).length;
   if (totalUnresolved >= MAX_ACTIVE_EVENTS) return null;
 
+  // Don't spawn shield events when shields are near max — no room to meaningfully boost
+  if (
+    (type === EventType.RadiationLeak || type === EventType.ShieldDegradation) &&
+    state.reactor.shieldStrength >= 90
+  ) return null;
+
   // Don't stack too many of same type
   const sameTypeActive = state.activeEvents.filter(
     e => e.type === type && !e.resolved && !e.consequenceApplied
@@ -306,7 +327,7 @@ function getEventDescription(type: EventType, severity: string): string {
     case EventType.PressureSurge: return `[${level}] Pressure building in primary loop. Vent immediately.`;
     case EventType.CoolantLeak: return `[${level}] Coolant leak detected. Repair the affected loop.`;
     case EventType.RadiationLeak: return `[${level}] Radiation levels spiking. Boost shields.`;
-    case EventType.SubsystemFailure: return `[${level}] A subsystem has failed. Dispatch repair.`;
+    case EventType.SubsystemFailure: return `[${level}] A subsystem is degrading. Repair it before it fails.`;
     case EventType.SensorMalfunction: return `[${level}] Sensor readings unreliable. Recalibrate.`;
     case EventType.ContainmentBreach: return `[${level}] Containment integrity compromised! Authorize emergency protocol.`;
     case EventType.PowerSurge: return `[${level}] Power output surging. Reduce control rod position.`;

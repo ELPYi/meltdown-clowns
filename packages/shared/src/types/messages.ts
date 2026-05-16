@@ -73,6 +73,7 @@ export type GameAction =
   | { kind: 'vent-pressure' }
   | { kind: 'emergency-coolant' }
   | { kind: 'authorize-protocol'; protocolId: 'containment-restore' | 'radiation-flush' | 'power-reroute' }
+  | { kind: 'seal-containment' }
   | { kind: 'resolve-event'; eventId: string }
   | { kind: 'set-coolant-flow'; level: number }
   | { kind: 'callout'; text: string };
