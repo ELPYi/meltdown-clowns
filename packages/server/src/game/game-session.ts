@@ -50,6 +50,7 @@ const ACTION_COOLDOWNS: Partial<Record<string, number>> = {
   'authorize-protocol:containment-restore': 30,
   'authorize-protocol:radiation-flush': 30,
   'authorize-protocol:power-reroute': 30,
+  'seal-containment': 60,
   'repair-subsystem': 8,
   'vent-pressure': 8,
   'toggle-fire-suppression': 5,
@@ -165,8 +166,14 @@ export class GameSession {
       const event = this.state.activeEvents.find(e => e.id === action.eventId);
       if (event && !event.resolved) {
         const lastActions = this.playerLastAction.get(playerId) ?? new Map<string, number>();
-        const lastReqAt = lastActions.get(event.requiredAction) ?? -1;
-        if (lastReqAt < event.startTime) {
+        // ContainmentBreach can be satisfied by either authorize-protocol or seal-containment
+        const acceptedActions = event.requiredAction === 'authorize-protocol'
+          ? ['authorize-protocol', 'seal-containment']
+          : [event.requiredAction];
+        const satisfied = acceptedActions.some(
+          a => (lastActions.get(a) ?? -1) >= event.startTime
+        );
+        if (!satisfied) {
           sendTo(playerId, {
             type: 'error',
             message: `Perform ${event.requiredAction} first to resolve this event`,

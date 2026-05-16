@@ -105,6 +105,21 @@ export function SafetyOfficerPanel({ gameState }: Props) {
       </div>
 
       <div className="control-section">
+        <h3>Containment</h3>
+        <CooldownButton
+          className="btn"
+          cooldownSec={60}
+          actionKey="seal-containment"
+          onClick={() => { playContainmentRestore(); sendAction({ kind: 'seal-containment' }); }}
+        >
+          Manual Containment Seal
+          <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 'normal' }}>
+            +8% containment — no pool charge, 60s cooldown
+          </span>
+        </CooldownButton>
+      </div>
+
+      <div className="control-section">
         <h3>Emergency Protocols</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <ProtocolButton

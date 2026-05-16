@@ -17,6 +17,7 @@ const ACTION_PERMISSIONS: Record<string, Role[]> = {
   'vent-pressure': [Role.SafetyOfficer],
   'emergency-coolant': [Role.SafetyOfficer],
   'authorize-protocol': [Role.SafetyOfficer],
+  'seal-containment': [Role.SafetyOfficer],
   'resolve-event': [Role.ReactorOperator, Role.Engineer, Role.Technician, Role.SafetyOfficer],
   'callout': [Role.ReactorOperator, Role.Engineer, Role.Technician, Role.SafetyOfficer],
 };
@@ -171,6 +172,10 @@ export function applyAction(action: GameAction, state: GameState): void {
           r.stability = Math.min(100, r.stability + 15);
           break;
       }
+      break;
+    case 'seal-containment':
+      // Slow manual patch — smaller gain than the emergency protocol but uses no pool charge
+      r.containment = Math.min(100, r.containment + 8);
       break;
     case 'callout':
       // Forwarded as a broadcast message by game-session; no reactor state change
