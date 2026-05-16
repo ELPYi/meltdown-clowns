@@ -5,8 +5,17 @@ import { Gauge } from '../controls/Gauge.js';
 import { ControlSlider } from '../controls/ControlSlider.js';
 import { EventQueue } from '../controls/EventQueue.js';
 import { CalloutButton } from '../controls/CalloutButton.js';
+import { CooldownButton } from '../controls/CooldownButton.js';
 import { noisy } from '../controls/noisyValue.js';
+import { useCooldown } from '../../hooks/useCooldown.js';
 import { playClick, playCoolantRush, playRepair, playExtinguish, playSliderTick } from '../../audio/sound-manager.js';
+
+const cdOverlay: React.CSSProperties = {
+  position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+  justifyContent: 'center', background: 'rgba(0,0,0,0.5)',
+  fontSize: '1.1rem', fontWeight: 'bold', color: '#fff',
+  pointerEvents: 'none', borderRadius: 'inherit',
+};
 
 interface Props {
   gameState: GameState;
@@ -17,6 +26,8 @@ export function EngineerPanel({ gameState }: Props) {
   const r = gameState.reactor;
   const noise = gameState.sensorNoise;
   const [coolantFlow, setCoolantFlow] = useState(r.coolantFlow);
+  const repairCooldown = useCooldown(8, 'repair-subsystem');
+  const extinguishCooldown = useCooldown(5, 'toggle-fire-suppression');
 
   const lastTickRef = useRef(0);
 
@@ -58,12 +69,14 @@ export function EngineerPanel({ gameState }: Props) {
           }}
         />
         <div className="control-row">
-          <button
+          <CooldownButton
             className="btn"
+            cooldownSec={15}
+            actionKey="refill-coolant"
             onClick={() => { playCoolantRush(); sendAction({ kind: 'refill-coolant' }); }}
           >
             Refill Coolant
-          </button>
+          </CooldownButton>
         </div>
       </div>
 
@@ -98,17 +111,23 @@ export function EngineerPanel({ gameState }: Props) {
                     {sub.onFire && (
                       <button
                         className="btn btn-small btn-danger"
-                        onClick={() => { playExtinguish(); sendAction({ kind: 'toggle-fire-suppression', subsystemId: sub.id }); }}
+                        disabled={extinguishCooldown.isOnCooldown}
+                        style={{ position: 'relative', opacity: extinguishCooldown.isOnCooldown ? 0.5 : 1 }}
+                        onClick={() => { extinguishCooldown.trigger(); playExtinguish(); sendAction({ kind: 'toggle-fire-suppression', subsystemId: sub.id }); }}
                       >
                         Extinguish
+                        {extinguishCooldown.isOnCooldown && <span style={cdOverlay}>{extinguishCooldown.remaining}s</span>}
                       </button>
                     )}
                     {needsRepair && (
                       <button
                         className="btn btn-small"
-                        onClick={() => { playRepair(); sendAction({ kind: 'repair-subsystem', subsystemId: sub.id }); }}
+                        disabled={repairCooldown.isOnCooldown}
+                        style={{ position: 'relative', opacity: repairCooldown.isOnCooldown ? 0.5 : 1 }}
+                        onClick={() => { repairCooldown.trigger(); playRepair(); sendAction({ kind: 'repair-subsystem', subsystemId: sub.id }); }}
                       >
                         Repair
+                        {repairCooldown.isOnCooldown && <span style={cdOverlay}>{repairCooldown.remaining}s</span>}
                       </button>
                     )}
                   </div>
