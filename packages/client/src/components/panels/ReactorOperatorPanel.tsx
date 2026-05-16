@@ -5,6 +5,7 @@ import { Gauge } from '../controls/Gauge.js';
 import { ControlSlider } from '../controls/ControlSlider.js';
 import { EventQueue } from '../controls/EventQueue.js';
 import { CalloutButton } from '../controls/CalloutButton.js';
+import { CooldownButton } from '../controls/CooldownButton.js';
 import { noisy } from '../controls/noisyValue.js';
 import { playThunk, playSliderTick } from '../../audio/sound-manager.js';
 
@@ -62,12 +63,14 @@ export function ReactorOperatorPanel({ gameState }: Props) {
         />
 
         <div className="control-row" style={{ justifyContent: 'center', marginTop: 16 }}>
-          <button
+          <CooldownButton
             className="scram-button"
+            cooldownSec={10}
+            actionKey="scram"
             onClick={() => { playThunk(); sendAction({ kind: 'scram' }); }}
           >
             SCRAM
-          </button>
+          </CooldownButton>
         </div>
       </div>
 

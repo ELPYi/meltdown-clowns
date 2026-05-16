@@ -5,6 +5,7 @@ import { Gauge } from '../controls/Gauge.js';
 import { ControlSlider } from '../controls/ControlSlider.js';
 import { EventQueue } from '../controls/EventQueue.js';
 import { CalloutButton } from '../controls/CalloutButton.js';
+import { CooldownButton } from '../controls/CooldownButton.js';
 import { noisy } from '../controls/noisyValue.js';
 import {
   playThunk, playVentHiss, playCoolantRush, playContainmentRestore,
@@ -69,25 +70,31 @@ export function SafetyOfficerPanel({ gameState }: Props) {
       <div className="control-section">
         <h3>Emergency Systems</h3>
         <div className="control-row" style={{ flexWrap: 'wrap', gap: 12 }}>
-          <button
+          <CooldownButton
             className="btn btn-warning"
+            cooldownSec={8}
+            actionKey="vent-pressure"
             onClick={() => { playVentHiss(); sendAction({ kind: 'vent-pressure' }); }}
           >
             Vent Pressure
-          </button>
-          <button
+          </CooldownButton>
+          <CooldownButton
             className="btn btn-danger"
+            cooldownSec={45}
+            actionKey="emergency-coolant"
             onClick={() => { playCoolantRush(); sendAction({ kind: 'emergency-coolant' }); }}
           >
             Emergency Coolant
-          </button>
-          <button
+          </CooldownButton>
+          <CooldownButton
             className="scram-button"
-            onClick={() => { playThunk(); sendAction({ kind: 'scram' }); }}
+            cooldownSec={10}
+            actionKey="scram"
             style={{ width: 64, height: 64, fontSize: '0.7rem' }}
+            onClick={() => { playThunk(); sendAction({ kind: 'scram' }); }}
           >
             SCRAM
-          </button>
+          </CooldownButton>
         </div>
       </div>
 
@@ -97,16 +104,19 @@ export function SafetyOfficerPanel({ gameState }: Props) {
           <ProtocolButton
             label="Restore Containment"
             description="+20% containment integrity"
+            actionKey="authorize-protocol:containment-restore"
             onClick={() => { playContainmentRestore(); sendAction({ kind: 'authorize-protocol', protocolId: 'containment-restore' }); }}
           />
           <ProtocolButton
             label="Radiation Flush"
             description="-30 mSv radiation / -10% shields"
+            actionKey="authorize-protocol:radiation-flush"
             onClick={() => { playShieldCharge(); sendAction({ kind: 'authorize-protocol', protocolId: 'radiation-flush' }); }}
           />
           <ProtocolButton
             label="Power Reroute"
             description="+15% reactor stability"
+            actionKey="authorize-protocol:power-reroute"
             onClick={() => { playThunk(); sendAction({ kind: 'authorize-protocol', protocolId: 'power-reroute' }); }}
           />
         </div>
@@ -140,19 +150,21 @@ export function SafetyOfficerPanel({ gameState }: Props) {
 }
 
 function ProtocolButton({
-  label, description, onClick,
-}: { label: string; description: string; onClick: () => void }) {
+  label, description, actionKey, onClick,
+}: { label: string; description: string; actionKey: string; onClick: () => void }) {
   return (
-    <button
+    <CooldownButton
       className="btn"
       style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}
+      cooldownSec={30}
+      actionKey={actionKey}
       onClick={onClick}
     >
       <span>{label}</span>
       <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 'normal' }}>
         {description}
       </span>
-    </button>
+    </CooldownButton>
   );
 }
 

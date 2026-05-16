@@ -5,28 +5,28 @@ import { resumeAudio, playClick } from '../audio/sound-manager.js';
 
 export function LobbyBrowser() {
   const [roomName, setRoomName] = useState('');
-  const [playerName, setPlayerName] = useState(useConnectionStore.getState().playerName);
+  const [playerName, setPlayerName] = useState('');
   const rooms = useLobbyStore(s => s.rooms);
   const createRoom = useLobbyStore(s => s.createRoom);
   const joinRoom = useLobbyStore(s => s.joinRoom);
   const setName = useConnectionStore(s => s.setPlayerName);
 
+  const nameValid = playerName.trim().length > 0;
+
   const handleCreate = () => {
+    if (!nameValid) return;
     resumeAudio();
     playClick();
-    if (playerName.trim()) {
-      setName(playerName.trim());
-    }
+    setName(playerName.trim());
     createRoom(roomName || 'Reactor Room');
     setRoomName('');
   };
 
   const handleJoin = (roomId: string) => {
+    if (!nameValid) return;
     resumeAudio();
     playClick();
-    if (playerName.trim()) {
-      setName(playerName.trim());
-    }
+    setName(playerName.trim());
     joinRoom(roomId);
   };
 
@@ -40,11 +40,16 @@ export function LobbyBrowser() {
       <div className="lobby-controls">
         <input
           type="text"
-          placeholder="Your name..."
+          placeholder="Enter your name..."
           value={playerName}
           onChange={e => setPlayerName(e.target.value)}
           maxLength={20}
         />
+        {!nameValid && (
+          <p style={{ fontSize: '0.72rem', color: 'var(--warning)', margin: '-4px 0 0 2px' }}>
+            A name is required to create or join a room.
+          </p>
+        )}
         <input
           type="text"
           placeholder="Room name..."
@@ -52,7 +57,7 @@ export function LobbyBrowser() {
           onChange={e => setRoomName(e.target.value)}
           maxLength={30}
         />
-        <button className="btn" onClick={handleCreate}>
+        <button className="btn" onClick={handleCreate} disabled={!nameValid}>
           Create Room
         </button>
       </div>
@@ -68,8 +73,11 @@ export function LobbyBrowser() {
             <div
               key={room.id}
               className="room-item"
-              onClick={() => !room.inGame && handleJoin(room.id)}
-              style={{ opacity: room.inGame ? 0.5 : 1 }}
+              onClick={() => !room.inGame && nameValid && handleJoin(room.id)}
+              style={{
+                opacity: room.inGame || !nameValid ? 0.5 : 1,
+                cursor: room.inGame || !nameValid ? 'default' : 'pointer',
+              }}
             >
               <div className="room-item-info">
                 <h3>{room.name}</h3>
@@ -79,7 +87,7 @@ export function LobbyBrowser() {
                 </span>
               </div>
               {!room.inGame && (
-                <button className="btn btn-small">Join</button>
+                <button className="btn btn-small" disabled={!nameValid}>Join</button>
               )}
             </div>
           ))

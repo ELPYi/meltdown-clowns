@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Role, ROLE_LABELS } from '@meltdown/shared';
 import { useGameStore } from '../../stores/game-store.js';
+import { useCooldown } from '../../hooks/useCooldown.js';
 import { playClick } from '../../audio/sound-manager.js';
 
 const CALLOUTS: Record<Role, string[]> = {
@@ -41,11 +42,13 @@ interface Props {
 export function CalloutButton({ role }: Props) {
   const sendAction = useGameStore(s => s.sendAction);
   const [open, setOpen] = useState(false);
+  const { remaining, isOnCooldown, trigger } = useCooldown(5, 'callout');
 
   const options = CALLOUTS[role] ?? [];
 
   const send = (text: string) => {
     playClick();
+    trigger();
     sendAction({ kind: 'callout', text });
     setOpen(false);
   };
@@ -54,10 +57,21 @@ export function CalloutButton({ role }: Props) {
     <div style={{ position: 'relative' }}>
       <button
         className="btn"
-        style={{ width: '100%', background: 'var(--bg-raised)', color: 'var(--warning)' }}
-        onClick={() => setOpen(o => !o)}
+        style={{ width: '100%', background: 'var(--bg-raised)', color: 'var(--warning)', position: 'relative', opacity: isOnCooldown ? 0.5 : 1 }}
+        disabled={isOnCooldown}
+        onClick={() => !isOnCooldown && setOpen(o => !o)}
       >
         📢 CALLOUT
+        {isOnCooldown && (
+          <span style={{
+            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', background: 'rgba(0,0,0,0.5)',
+            fontSize: '1.1rem', fontWeight: 'bold', color: '#fff',
+            pointerEvents: 'none', borderRadius: 'inherit',
+          }}>
+            {remaining}s
+          </span>
+        )}
       </button>
       {open && (
         <div style={{
