@@ -3,7 +3,7 @@ import { connect, send, onMessage } from '../network/ws-client.js';
 import { useGameStore } from './game-store.js';
 import { useLobbyStore } from './lobby-store.js';
 import { ServerMessage } from '@meltdown/shared';
-import { emitCooldown } from '../util/cooldownBus.js';
+import { startCooldownBus } from '../util/cooldownBus.js';
 
 interface ConnectionState {
   connected: boolean;
@@ -18,7 +18,12 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
   latency: 0,
   playerName: `Player-${Math.random().toString(36).slice(2, 6)}`,
 
-  setPlayerName: (name: string) => set({ playerName: name }),
+  setPlayerName: (name: string) => {
+    set({ playerName: name });
+    if (get().connected) {
+      send({ type: 'join-lobby', playerName: name });
+    }
+  },
 
   init: () => {
     connect(
@@ -73,7 +78,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
         case 'error': {
           const cdMatch = /^(\S+) on cooldown — ([\d.]+)s remaining/.exec(message.message);
           if (cdMatch && cdMatch[1] !== 'authorize-protocol') {
-            emitCooldown(cdMatch[1], parseFloat(cdMatch[2]));
+            startCooldownBus(cdMatch[1], parseFloat(cdMatch[2]) * 1000);
           } else {
             console.error('[Server Error]', message.message);
           }
