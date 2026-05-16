@@ -8,6 +8,7 @@ import { CalloutButton } from '../controls/CalloutButton.js';
 import { CooldownButton } from '../controls/CooldownButton.js';
 import { noisy } from '../controls/noisyValue.js';
 import { useCooldown } from '../../hooks/useCooldown.js';
+import { DIFFICULTY_CONFIG } from '@meltdown/shared';
 import { playClick, playCoolantRush, playRepair, playExtinguish, playSliderTick } from '../../audio/sound-manager.js';
 
 const cdOverlay: React.CSSProperties = {
@@ -59,8 +60,11 @@ export function EngineerPanel({ gameState }: Props) {
           label="Coolant Flow"
           value={coolantFlow}
           onChange={(v) => {
-            setCoolantFlow(v);
-            sendAction({ kind: 'set-coolant-flow', level: v });
+            const sensitivity = DIFFICULTY_CONFIG[gameState.difficulty].sliderSensitivity;
+            const delta = v - r.coolantFlow;
+            const amplified = Math.max(0, Math.min(100, r.coolantFlow + delta * sensitivity));
+            setCoolantFlow(amplified);
+            sendAction({ kind: 'set-coolant-flow', level: amplified });
             const now = Date.now();
             if (now - lastTickRef.current > 80) {
               playSliderTick();

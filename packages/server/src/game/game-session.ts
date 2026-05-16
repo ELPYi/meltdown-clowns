@@ -4,6 +4,7 @@ import {
   Role,
   PHASE_NAMES,
   DiagnosticRisk,
+  ScoreBreakdown,
   createInitialGameState,
   tickReactor,
   updatePhase,
@@ -18,8 +19,28 @@ import {
   STATE_BROADCAST_INTERVAL,
   AI_TAKEOVER_DELAY_S,
   CALLOUT_COOLDOWN_S,
+  Difficulty,
+  DIFFICULTY_CONFIG,
+  GAME_DURATION_S,
+  SCORE_PER_EVENT,
+  SCORE_PER_PLAYER,
+  SCORE_MAX_POWER,
+  SCORE_PER_MINUTE,
+  SCORE_SURVIVAL_BONUS,
+  SCORE_EMERGENCY_PENALTY,
+  SCRAM_PROTECTION_S,
 } from '@meltdown/shared';
 import { broadcast, sendTo } from '../ws/message-router.js';
+
+/** Actions that consume a shared emergency pool charge. */
+const EMERGENCY_ACTION_KEYS = new Set([
+  'emergency-coolant',
+  'vent-pressure',
+  'scram',
+  'authorize-protocol:containment-restore',
+  'authorize-protocol:radiation-flush',
+  'authorize-protocol:power-reroute',
+]);
 
 /** Minimum seconds between uses of each action, per player. */
 const ACTION_COOLDOWNS: Partial<Record<string, number>> = {
@@ -68,6 +89,7 @@ export class GameSession {
     roomId: string,
     playerIds: string[],
     roleAssignments: Map<string, Role[]>,
+    difficulty: Difficulty,
     onGameOver: (session: GameSession) => void
   ) {
     this.sessionId = `session-${Date.now().toString(36)}`;
@@ -76,7 +98,7 @@ export class GameSession {
     this.playerRoles = roleAssignments;
     this.onGameOver = onGameOver;
 
-    this.state = createInitialGameState(this.sessionId, playerIds.length);
+    this.state = createInitialGameState(this.sessionId, playerIds.length, difficulty);
     this.rng = new SeededRNG(Date.now());
 
     resetCascadeEngine();
@@ -113,6 +135,15 @@ export class GameSession {
 
     const cdKey = cooldownKey(action);
     const cooldownSec = ACTION_COOLDOWNS[cdKey];
+
+    // --- Emergency pool check ---
+    if (EMERGENCY_ACTION_KEYS.has(cdKey) && this.state.emergencyActionsLeft <= 0) {
+      sendTo(playerId, {
+        type: 'error',
+        message: 'No emergency actions remaining!',
+      });
+      return;
+    }
 
     // --- Cooldown check ---
     if (cooldownSec !== undefined) {
@@ -172,6 +203,17 @@ export class GameSession {
     }
 
     applyAction(action, this.state);
+
+    // Consume emergency pool charge
+    if (EMERGENCY_ACTION_KEYS.has(cdKey)) {
+      this.state.emergencyActionsLeft = Math.max(0, this.state.emergencyActionsLeft - 1);
+      this.state.emergencyActionsUsed++;
+    }
+
+    // SCRAM protection: exempt power drops from low-power penalty for a while
+    if (action.kind === 'scram') {
+      this.state.scramProtectionTimer = SCRAM_PROTECTION_S;
+    }
 
     // Track last-action time for event resolution gating
     if (action.kind !== 'resolve-event') {
@@ -371,8 +413,44 @@ export class GameSession {
         eventsResolved: this.state.resolvedEventCount,
         totalEvents: this.state.totalEventCount,
         finalPhase: this.state.phase,
+        score: this.calculateScore(),
       },
     });
+  }
+
+  private calculateScore(): ScoreBreakdown {
+    const config = DIFFICULTY_CONFIG[this.state.difficulty];
+    const minutesSurvived = this.state.gameTime / 60;
+    const avgPower = this.state.powerOutputTicks > 0
+      ? this.state.powerOutputSum / this.state.powerOutputTicks
+      : 0;
+    const survived10Min = this.state.gameTime >= GAME_DURATION_S;
+
+    const eventsScore = this.state.resolvedEventCount * SCORE_PER_EVENT;
+    const playerScore = this.state.playerCount * SCORE_PER_PLAYER;
+    const powerScore = Math.round((avgPower / 100) * SCORE_MAX_POWER);
+    const timeScore = Math.round(minutesSurvived * SCORE_PER_MINUTE);
+    const survivalBonus = survived10Min ? SCORE_SURVIVAL_BONUS : 0;
+    const emergencyPenalty = this.state.emergencyActionsUsed * SCORE_EMERGENCY_PENALTY;
+    const lowPowerPenalty = Math.round(this.state.lowPowerPenalty);
+
+    const subtotal = eventsScore + playerScore + powerScore + timeScore + survivalBonus
+      - emergencyPenalty - lowPowerPenalty;
+    const total = Math.max(0, Math.round(subtotal * config.multiplier));
+
+    return {
+      eventsScore,
+      playerScore,
+      powerScore,
+      timeScore,
+      survivalBonus,
+      emergencyPenalty,
+      lowPowerPenalty,
+      subtotal,
+      multiplier: config.multiplier,
+      total,
+      difficulty: this.state.difficulty,
+    };
   }
 
   getState(): GameState {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, Role } from '@meltdown/shared';
+import { GameState, Role, DIFFICULTY_CONFIG } from '@meltdown/shared';
 import { useGameStore } from '../../stores/game-store.js';
 import { Gauge } from '../controls/Gauge.js';
 import { ControlSlider } from '../controls/ControlSlider.js';
@@ -56,8 +56,11 @@ export function SafetyOfficerPanel({ gameState }: Props) {
           label="Shield Power"
           value={shieldPower}
           onChange={(v) => {
-            setShieldPower(v);
-            sendAction({ kind: 'set-shield-power', level: v });
+            const sensitivity = DIFFICULTY_CONFIG[gameState.difficulty].sliderSensitivity;
+            const delta = v - r.shieldStrength;
+            const amplified = Math.max(0, Math.min(100, r.shieldStrength + delta * sensitivity));
+            setShieldPower(amplified);
+            sendAction({ kind: 'set-shield-power', level: amplified });
             const now = Date.now();
             if (now - lastTickRef.current > 80) {
               playSliderTick();
@@ -74,6 +77,7 @@ export function SafetyOfficerPanel({ gameState }: Props) {
             className="btn btn-warning"
             cooldownSec={8}
             actionKey="vent-pressure"
+            disabled={gameState.emergencyActionsLeft <= 0}
             onClick={() => { playVentHiss(); sendAction({ kind: 'vent-pressure' }); }}
           >
             Vent Pressure
@@ -82,6 +86,7 @@ export function SafetyOfficerPanel({ gameState }: Props) {
             className="btn btn-danger"
             cooldownSec={45}
             actionKey="emergency-coolant"
+            disabled={gameState.emergencyActionsLeft <= 0}
             onClick={() => { playCoolantRush(); sendAction({ kind: 'emergency-coolant' }); }}
           >
             Emergency Coolant
@@ -91,6 +96,7 @@ export function SafetyOfficerPanel({ gameState }: Props) {
             cooldownSec={10}
             actionKey="scram"
             style={{ width: 64, height: 64, fontSize: '0.7rem' }}
+            disabled={gameState.emergencyActionsLeft <= 0}
             onClick={() => { playThunk(); sendAction({ kind: 'scram' }); }}
           >
             SCRAM
@@ -105,18 +111,21 @@ export function SafetyOfficerPanel({ gameState }: Props) {
             label="Restore Containment"
             description="+20% containment integrity"
             actionKey="authorize-protocol:containment-restore"
+            disabled={gameState.emergencyActionsLeft <= 0}
             onClick={() => { playContainmentRestore(); sendAction({ kind: 'authorize-protocol', protocolId: 'containment-restore' }); }}
           />
           <ProtocolButton
             label="Radiation Flush"
             description="-30 mSv radiation / -10% shields"
             actionKey="authorize-protocol:radiation-flush"
+            disabled={gameState.emergencyActionsLeft <= 0}
             onClick={() => { playShieldCharge(); sendAction({ kind: 'authorize-protocol', protocolId: 'radiation-flush' }); }}
           />
           <ProtocolButton
             label="Power Reroute"
             description="+15% reactor stability"
             actionKey="authorize-protocol:power-reroute"
+            disabled={gameState.emergencyActionsLeft <= 0}
             onClick={() => { playThunk(); sendAction({ kind: 'authorize-protocol', protocolId: 'power-reroute' }); }}
           />
         </div>
@@ -150,14 +159,15 @@ export function SafetyOfficerPanel({ gameState }: Props) {
 }
 
 function ProtocolButton({
-  label, description, actionKey, onClick,
-}: { label: string; description: string; actionKey: string; onClick: () => void }) {
+  label, description, actionKey, disabled, onClick,
+}: { label: string; description: string; actionKey: string; disabled?: boolean; onClick: () => void }) {
   return (
     <CooldownButton
       className="btn"
       style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}
       cooldownSec={30}
       actionKey={actionKey}
+      disabled={disabled}
       onClick={onClick}
     >
       <span>{label}</span>

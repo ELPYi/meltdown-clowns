@@ -1,5 +1,6 @@
 import { Role } from './roles.js';
 import { GameState, GamePhase } from './game-state.js';
+import { Difficulty } from '../util/constants.js';
 
 // ---- Client -> Server Messages ----
 
@@ -10,6 +11,7 @@ export type ClientMessage =
   | JoinRoomMessage
   | LeaveRoomMessage
   | SelectRoleMessage
+  | SetDifficultyMessage
   | StartGameMessage
   | GameActionMessage;
 
@@ -40,6 +42,11 @@ export interface LeaveRoomMessage {
 export interface SelectRoleMessage {
   type: 'select-role';
   role: Role;
+}
+
+export interface SetDifficultyMessage {
+  type: 'set-difficulty';
+  difficulty: Difficulty;
 }
 
 export interface StartGameMessage {
@@ -116,6 +123,7 @@ export interface RoomDetail {
   hostId: string;
   maxPlayers: number;
   inGame: boolean;
+  difficulty: Difficulty;
 }
 
 export interface PlayerInfo {
@@ -145,11 +153,26 @@ export interface GameOverMessage {
   stats: GameStats;
 }
 
+export interface ScoreBreakdown {
+  eventsScore: number;
+  playerScore: number;
+  powerScore: number;
+  timeScore: number;
+  survivalBonus: number;
+  emergencyPenalty: number;
+  lowPowerPenalty: number;
+  subtotal: number;
+  multiplier: number;
+  total: number;
+  difficulty: Difficulty;
+}
+
 export interface GameStats {
   survivalTime: number;
   eventsResolved: number;
   totalEvents: number;
   finalPhase: number;
+  score: ScoreBreakdown;
 }
 
 export interface ErrorMessage {

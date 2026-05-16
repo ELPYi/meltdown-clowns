@@ -71,3 +71,69 @@ export const AI_TAKEOVER_DELAY_S = 30;
 
 /** Cooldown in seconds between callout messages, per player */
 export const CALLOUT_COOLDOWN_S = 5;
+
+// ---- Difficulty ----
+
+export enum Difficulty {
+  Easy = 'easy',
+  Normal = 'normal',
+  Hard = 'hard',
+  Impossible = 'impossible',
+}
+
+export interface DifficultySettings {
+  label: string;
+  multiplier: number;
+  emergencyPool: number;
+  /** Max fraction of events allowed to fail before game over. 0 = any failure ends game. */
+  failureThreshold: number;
+  sliderSensitivity: number;
+}
+
+export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultySettings> = {
+  [Difficulty.Easy]: {
+    label: 'Easy',
+    multiplier: 0.6,
+    emergencyPool: 7,
+    failureThreshold: 0.7,
+    sliderSensitivity: 1.0,
+  },
+  [Difficulty.Normal]: {
+    label: 'Normal',
+    multiplier: 1.0,
+    emergencyPool: 5,
+    failureThreshold: 0.5,
+    sliderSensitivity: 1.0,
+  },
+  [Difficulty.Hard]: {
+    label: 'Hard',
+    multiplier: 1.5,
+    emergencyPool: 2,
+    failureThreshold: 0.2,
+    sliderSensitivity: 1.3,
+  },
+  [Difficulty.Impossible]: {
+    label: 'Impossible',
+    multiplier: 2.0,
+    emergencyPool: 0,
+    failureThreshold: 0,
+    sliderSensitivity: 1.7,
+  },
+};
+
+// ---- Scoring ----
+
+export const SCORE_PER_EVENT = 100;
+export const SCORE_PER_PLAYER = 150;
+export const SCORE_MAX_POWER = 500;
+export const SCORE_PER_MINUTE = 50;
+export const SCORE_SURVIVAL_BONUS = 1000;
+export const SCORE_EMERGENCY_PENALTY = 75;
+
+// ---- Low power mechanic ----
+
+export const MIN_POWER_THRESHOLD = 25;
+export const LOW_POWER_GRACE_S = 10;
+export const LOW_POWER_GAME_OVER_S = 30;
+export const LOW_POWER_PENALTY_PER_S = 20;
+export const SCRAM_PROTECTION_S = 60;

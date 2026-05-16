@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, Role } from '@meltdown/shared';
+import { GameState, Role, DIFFICULTY_CONFIG } from '@meltdown/shared';
 import { useGameStore } from '../../stores/game-store.js';
 import { Gauge } from '../controls/Gauge.js';
 import { ControlSlider } from '../controls/ControlSlider.js';
@@ -25,8 +25,11 @@ export function ReactorOperatorPanel({ gameState }: Props) {
 
   const lastTickRef = useRef(0);
   const handleRodChange = (value: number) => {
-    setRodPos(value);
-    sendAction({ kind: 'set-control-rods', position: value });
+    const sensitivity = DIFFICULTY_CONFIG[gameState.difficulty].sliderSensitivity;
+    const delta = value - r.controlRodPosition;
+    const amplified = Math.max(0, Math.min(100, r.controlRodPosition + delta * sensitivity));
+    setRodPos(amplified);
+    sendAction({ kind: 'set-control-rods', position: amplified });
     const now = Date.now();
     if (now - lastTickRef.current > 80) {
       playSliderTick();
@@ -67,6 +70,7 @@ export function ReactorOperatorPanel({ gameState }: Props) {
             className="scram-button"
             cooldownSec={10}
             actionKey="scram"
+            disabled={gameState.emergencyActionsLeft <= 0}
             onClick={() => { playThunk(); sendAction({ kind: 'scram' }); }}
           >
             SCRAM
