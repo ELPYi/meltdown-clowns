@@ -1,5 +1,5 @@
 import { ReactorState, GameState, GamePhase } from '../types/game-state.js';
-import { TICK_DELTA, CRITICAL_TEMP, CRITICAL_TEMP_HOLD } from '../util/constants.js';
+import { TICK_DELTA, CRITICAL_TEMP, CRITICAL_TEMP_HOLD, GAME_DURATION_S } from '../util/constants.js';
 
 /**
  * Core reactor physics simulation. Runs every tick (50ms).
@@ -24,8 +24,10 @@ export function tickReactor(state: GameState): void {
   r.temperature += (heatGeneration - heatRemoval - ambientCooling) * dt;
   r.temperature = clamp(r.temperature, 20, 1000);
 
-  // Pressure correlates with temperature
-  const targetPressure = (r.temperature / 1000) * 100;
+  // Pressure driven by temperature AND restricted coolant flow — low flow means less heat transfer
+  // which traps heat in the primary loop and raises pressure independently of temperature.
+  const flowRestriction = (1 - r.coolantFlow / 100) * 20;
+  const targetPressure = (r.temperature / 1000) * 80 + flowRestriction;
   r.pressure += (targetPressure - r.pressure) * 0.3 * dt * 20;
   r.pressure = clamp(r.pressure, 0, 100);
 
@@ -75,6 +77,14 @@ export function tickReactor(state: GameState): void {
 
   // Check for subsystem effects
   updateSubsystemEffects(state);
+
+  // Sensor noise auto-clears after its TTL
+  if (state.sensorNoise.active) {
+    state.sensorNoise.ttl -= dt;
+    if (state.sensorNoise.ttl <= 0) {
+      state.sensorNoise.active = false;
+    }
+  }
 
   // Critical temperature timer
   if (r.temperature >= CRITICAL_TEMP) {
@@ -128,8 +138,8 @@ function checkGameOver(state: GameState): void {
 
   const r = state.reactor;
 
-  // Win condition: survived final countdown
-  if (state.gameTime >= 600 && state.phase === GamePhase.FinalCountdown) {
+  // Win condition: survived full game duration
+  if (state.gameTime >= GAME_DURATION_S) {
     state.gameOver = true;
     state.won = true;
     state.gameOverReason = 'Reactor stabilized! The Dyson sphere is saved!';

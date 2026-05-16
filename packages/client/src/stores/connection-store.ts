@@ -52,6 +52,23 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
         case 'game-over':
           useGameStore.getState().endGame(message.won, message.reason, message.stats);
           break;
+        case 'phase-change':
+          useGameStore.getState().setPhaseAlert(message.phase, message.phaseName);
+          break;
+        case 'diagnostic-result':
+          useGameStore.getState().setDiagnosticResult(message);
+          break;
+        case 'callout':
+          useGameStore.getState().addCallout(message.fromRole, message.text);
+          break;
+        case 'player-disconnected':
+          useGameStore.getState().setDisconnectedRoles(message.aiControlled
+            ? message.roles  // replace with AI-controlled list
+            : [...useGameStore.getState().disconnectedRoles, ...message.roles.filter(
+                r => !useGameStore.getState().disconnectedRoles.includes(r)
+              )]
+          );
+          break;
         case 'error':
           console.error('[Server Error]', message.message);
           break;

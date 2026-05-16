@@ -1,5 +1,17 @@
 import { Role } from './roles.js';
 
+export interface SensorNoise {
+  active: boolean;
+  ttl: number; // seconds until auto-clear
+  offsets: {
+    temperature: number;
+    pressure: number;
+    radiation: number;
+    coolantLevel: number;
+    containment: number;
+  };
+}
+
 export enum GamePhase {
   StableOperations = 0,
   AnomaliesDetected = 1,
@@ -91,6 +103,8 @@ export interface GameState {
   won: boolean;
   gameOverReason?: string;
   criticalTempTimer: number;  // seconds at critical temp
+  sensorNoise: SensorNoise;
+  disconnectedRoles: Role[];  // roles whose players have disconnected
 }
 
 export function createInitialReactorState(): ReactorState {
@@ -123,6 +137,12 @@ export function createInitialGameState(sessionId: string, playerCount: number): 
     gameOver: false,
     won: false,
     criticalTempTimer: 0,
+    sensorNoise: {
+      active: false,
+      ttl: 0,
+      offsets: { temperature: 0, pressure: 0, radiation: 0, coolantLevel: 0, containment: 0 },
+    },
+    disconnectedRoles: [],
   };
 }
 

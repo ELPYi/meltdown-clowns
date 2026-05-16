@@ -4,6 +4,8 @@ import { useGameStore } from '../../stores/game-store.js';
 import { Gauge } from '../controls/Gauge.js';
 import { ControlSlider } from '../controls/ControlSlider.js';
 import { EventQueue } from '../controls/EventQueue.js';
+import { CalloutButton } from '../controls/CalloutButton.js';
+import { noisy } from '../controls/noisyValue.js';
 import { playClick, playCoolantRush, playRepair, playExtinguish, playSliderTick } from '../../audio/sound-manager.js';
 
 interface Props {
@@ -13,6 +15,7 @@ interface Props {
 export function EngineerPanel({ gameState }: Props) {
   const sendAction = useGameStore(s => s.sendAction);
   const r = gameState.reactor;
+  const noise = gameState.sensorNoise;
   const [coolantFlow, setCoolantFlow] = useState(r.coolantFlow);
 
   const lastTickRef = useRef(0);
@@ -23,10 +26,20 @@ export function EngineerPanel({ gameState }: Props) {
 
   return (
     <div>
+      {noise.active && (
+        <div style={{
+          background: '#3a1a00', border: '1px solid var(--warning)',
+          borderRadius: 4, padding: '4px 10px', marginBottom: 8,
+          fontSize: '0.75rem', color: 'var(--warning)',
+        }}>
+          ⚠ Sensor malfunction — coolant readings may be inaccurate. Notify Technician.
+        </div>
+      )}
+
       <div className="gauge-grid">
-        <Gauge label="Coolant Level" value={r.coolantLevel} unit="%" thresholds={[40, 20]} />
+        <Gauge label="Coolant Level" value={noisy(r.coolantLevel, 'coolantLevel', noise, false)} unit="%" thresholds={[40, 20]} />
         <Gauge label="Coolant Flow" value={r.coolantFlow} unit="%" />
-        <Gauge label="Core Temp" value={r.temperature} max={1000} unit="K" thresholds={[600, 800]} />
+        <Gauge label="Core Temp" value={noisy(r.temperature, 'temperature', noise, false)} max={1000} unit="K" thresholds={[600, 800]} />
       </div>
 
       <div className="control-section">
@@ -68,6 +81,8 @@ export function EngineerPanel({ gameState }: Props) {
             else if (!sub.operational) { statusClass = 'offline'; statusText = 'OFFLINE'; }
             else if (sub.health < 60) { statusClass = 'damaged'; statusText = 'DAMAGED'; }
 
+            const needsRepair = sub.health < 80 || sub.onFire;
+
             return (
               <div key={sub.id} className="subsystem-card">
                 <div className="subsystem-name">{sub.name}</div>
@@ -88,7 +103,7 @@ export function EngineerPanel({ gameState }: Props) {
                         Extinguish
                       </button>
                     )}
-                    {sub.health < 100 && (
+                    {needsRepair && (
                       <button
                         className="btn btn-small"
                         onClick={() => { playRepair(); sendAction({ kind: 'repair-subsystem', subsystemId: sub.id }); }}
@@ -111,6 +126,10 @@ export function EngineerPanel({ gameState }: Props) {
           gameTime={gameState.gameTime}
           filterRole={Role.Engineer}
         />
+      </div>
+
+      <div className="control-section">
+        <CalloutButton role={Role.Engineer} />
       </div>
     </div>
   );

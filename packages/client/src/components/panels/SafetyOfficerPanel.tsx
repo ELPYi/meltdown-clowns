@@ -4,6 +4,8 @@ import { useGameStore } from '../../stores/game-store.js';
 import { Gauge } from '../controls/Gauge.js';
 import { ControlSlider } from '../controls/ControlSlider.js';
 import { EventQueue } from '../controls/EventQueue.js';
+import { CalloutButton } from '../controls/CalloutButton.js';
+import { noisy } from '../controls/noisyValue.js';
 import {
   playThunk, playVentHiss, playCoolantRush, playContainmentRestore,
   playShieldCharge, playSliderTick,
@@ -16,6 +18,7 @@ interface Props {
 export function SafetyOfficerPanel({ gameState }: Props) {
   const sendAction = useGameStore(s => s.sendAction);
   const r = gameState.reactor;
+  const noise = gameState.sensorNoise;
   const [shieldPower, setShieldPower] = useState(r.shieldStrength);
   const lastTickRef = useRef(0);
 
@@ -23,13 +26,27 @@ export function SafetyOfficerPanel({ gameState }: Props) {
     setShieldPower(r.shieldStrength);
   }, [r.shieldStrength]);
 
+  const nRad = noisy(r.radiation, 'radiation', noise, false);
+  const nCon = noisy(r.containment, 'containment', noise, false);
+  const nPres = noisy(r.pressure, 'pressure', noise, false);
+
   return (
     <div>
+      {noise.active && (
+        <div style={{
+          background: '#3a1a00', border: '1px solid var(--warning)',
+          borderRadius: 4, padding: '4px 10px', marginBottom: 8,
+          fontSize: '0.75rem', color: 'var(--warning)',
+        }}>
+          ⚠ Sensor malfunction — radiation/containment/pressure readings may be inaccurate.
+        </div>
+      )}
+
       <div className="gauge-grid">
-        <Gauge label="Radiation" value={r.radiation} max={100} unit="mSv" thresholds={[40, 70]} />
-        <Gauge label="Containment" value={r.containment} max={100} unit="%" thresholds={[50, 25]} />
+        <Gauge label="Radiation" value={nRad} max={100} unit="mSv" thresholds={[40, 70]} />
+        <Gauge label="Containment" value={nCon} max={100} unit="%" thresholds={[50, 25]} />
         <Gauge label="Shield Power" value={r.shieldStrength} max={100} unit="%" thresholds={[40, 20]} />
-        <Gauge label="Pressure" value={r.pressure} max={100} unit="MPa" thresholds={[60, 80]} decimals={1} />
+        <Gauge label="Pressure" value={nPres} max={100} unit="MPa" thresholds={[60, 80]} decimals={1} />
       </div>
 
       <div className="control-section">
@@ -65,18 +82,33 @@ export function SafetyOfficerPanel({ gameState }: Props) {
             Emergency Coolant
           </button>
           <button
-            className="btn"
-            onClick={() => { playContainmentRestore(); sendAction({ kind: 'authorize-protocol', protocolId: 'containment-restore' }); }}
-          >
-            Restore Containment
-          </button>
-          <button
             className="scram-button"
             onClick={() => { playThunk(); sendAction({ kind: 'scram' }); }}
             style={{ width: 64, height: 64, fontSize: '0.7rem' }}
           >
             SCRAM
           </button>
+        </div>
+      </div>
+
+      <div className="control-section">
+        <h3>Emergency Protocols</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <ProtocolButton
+            label="Restore Containment"
+            description="+20% containment integrity"
+            onClick={() => { playContainmentRestore(); sendAction({ kind: 'authorize-protocol', protocolId: 'containment-restore' }); }}
+          />
+          <ProtocolButton
+            label="Radiation Flush"
+            description="-30 mSv radiation / -10% shields"
+            onClick={() => { playShieldCharge(); sendAction({ kind: 'authorize-protocol', protocolId: 'radiation-flush' }); }}
+          />
+          <ProtocolButton
+            label="Power Reroute"
+            description="+15% reactor stability"
+            onClick={() => { playThunk(); sendAction({ kind: 'authorize-protocol', protocolId: 'power-reroute' }); }}
+          />
         </div>
       </div>
 
@@ -89,18 +121,38 @@ export function SafetyOfficerPanel({ gameState }: Props) {
         />
       </div>
 
-      {/* Warning indicators */}
       <div className="control-section">
         <h3>Status Indicators</h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <WarningLight label="Radiation" level={r.radiation > 70 ? 'danger' : r.radiation > 40 ? 'warning' : 'safe'} />
-          <WarningLight label="Containment" level={r.containment < 25 ? 'danger' : r.containment < 50 ? 'warning' : 'safe'} />
+          <WarningLight label="Radiation" level={nRad > 70 ? 'danger' : nRad > 40 ? 'warning' : 'safe'} />
+          <WarningLight label="Containment" level={nCon < 25 ? 'danger' : nCon < 50 ? 'warning' : 'safe'} />
           <WarningLight label="Shields" level={r.shieldStrength < 20 ? 'danger' : r.shieldStrength < 40 ? 'warning' : 'safe'} />
-          <WarningLight label="Pressure" level={r.pressure > 80 ? 'danger' : r.pressure > 60 ? 'warning' : 'safe'} />
+          <WarningLight label="Pressure" level={nPres > 80 ? 'danger' : nPres > 60 ? 'warning' : 'safe'} />
           <WarningLight label="Temperature" level={r.temperature > 800 ? 'danger' : r.temperature > 600 ? 'warning' : 'safe'} />
         </div>
       </div>
+
+      <div className="control-section">
+        <CalloutButton role={Role.SafetyOfficer} />
+      </div>
     </div>
+  );
+}
+
+function ProtocolButton({
+  label, description, onClick,
+}: { label: string; description: string; onClick: () => void }) {
+  return (
+    <button
+      className="btn"
+      style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 'normal' }}>
+        {description}
+      </span>
+    </button>
   );
 }
 
