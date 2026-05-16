@@ -23,9 +23,10 @@ export function RoomWaiting() {
 
   if (!room) return null;
 
-  const canStart = room.players.length >= 2;
   const myPlayer = room.players.find(p => p.name === myName);
   const isHost = myPlayer?.id === room.hostId || room.players[0]?.id === room.hostId;
+  const allHaveRoles = room.players.length >= 2 && room.players.every(p => p.selectedRoles.length > 0);
+  const canStart = allHaveRoles;
   const currentDifficulty = room.difficulty ?? Difficulty.Normal;
   const diffConfig = DIFFICULTY_CONFIG[currentDifficulty];
 
@@ -67,16 +68,34 @@ export function RoomWaiting() {
       <div className="control-section">
         <h3>Select Your Role</h3>
         <div className="role-selection">
-          {ALL_ROLES.map(role => (
-            <div
-              key={role}
-              className={`role-card ${isRoleSelected(room.players, role) ? 'selected' : ''}`}
-              onClick={() => { playSwitch(); selectRole(role); }}
-            >
-              <h4>{ROLE_LABELS[role]}</h4>
-              <p>{ROLE_DESCRIPTIONS[role]}</p>
-            </div>
-          ))}
+          {ALL_ROLES.map(role => {
+            const isMine = myPlayer?.selectedRoles.includes(role) ?? false;
+            const exclusiveRoles = room.players.length <= 4;
+            const takenBy = exclusiveRoles
+              ? room.players.find(p => p.name !== myName && p.selectedRoles.includes(role))
+              : undefined;
+            const isTaken = !!takenBy;
+            return (
+              <div
+                key={role}
+                className={`role-card ${isMine ? 'selected' : ''} ${isTaken ? 'taken' : ''}`}
+                onClick={() => {
+                  if (isTaken) return;
+                  playSwitch();
+                  selectRole(role);
+                }}
+                style={isTaken ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+              >
+                <h4>{ROLE_LABELS[role]}</h4>
+                <p>{ROLE_DESCRIPTIONS[role]}</p>
+                {isTaken && (
+                  <span style={{ fontSize: '0.7rem', color: 'var(--warning)', marginTop: 4, display: 'block' }}>
+                    Taken by {takenBy!.name}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -117,13 +136,14 @@ export function RoomWaiting() {
           onClick={() => { playThunk(); startGame(); }}
           disabled={!canStart}
         >
-          {canStart ? 'Start Reactor' : `Need ${2 - room.players.length} more players`}
+          {room.players.length < 2
+            ? `Need ${2 - room.players.length} more player${2 - room.players.length === 1 ? '' : 's'}`
+            : !allHaveRoles
+            ? 'Waiting for all players to pick a role'
+            : 'Start Reactor'}
         </button>
       </div>
     </div>
   );
 }
 
-function isRoleSelected(players: Array<{ selectedRoles: Role[] }>, role: Role): boolean {
-  return players.some(p => p.selectedRoles.includes(role));
-}

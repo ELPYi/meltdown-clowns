@@ -29,6 +29,7 @@ import {
   SCORE_SURVIVAL_BONUS,
   SCORE_EMERGENCY_PENALTY,
   SCRAM_PROTECTION_S,
+  MAX_PLAYERS,
 } from '@meltdown/shared';
 import { broadcast, sendTo } from '../ws/message-router.js';
 
@@ -427,7 +428,7 @@ export class GameSession {
     const survived10Min = this.state.gameTime >= GAME_DURATION_S;
 
     const eventsScore = this.state.resolvedEventCount * SCORE_PER_EVENT;
-    const playerScore = this.state.playerCount * SCORE_PER_PLAYER;
+    const playerScore = Math.round((MAX_PLAYERS / this.state.playerCount) * SCORE_PER_PLAYER);
     const powerScore = Math.round((avgPower / 100) * SCORE_MAX_POWER);
     const timeScore = Math.round(minutesSurvived * SCORE_PER_MINUTE);
     const survivalBonus = survived10Min ? SCORE_SURVIVAL_BONUS : 0;
