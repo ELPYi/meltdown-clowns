@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useGameStore } from '../stores/game-store.js';
-import { Role, ROLE_LABELS, PHASE_NAMES, GamePhase } from '@meltdown/shared';
+import { Role, ROLE_LABELS, PHASE_NAMES, GamePhase, DIFFICULTY_CONFIG, LOW_POWER_GRACE_S } from '@meltdown/shared';
 import { ReactorDisplay } from '../components/reactor-display/ReactorDisplay.js';
 import { ReactorOperatorPanel } from '../components/panels/ReactorOperatorPanel.js';
 import { EngineerPanel } from '../components/panels/EngineerPanel.js';
@@ -70,6 +70,22 @@ export function GameScreen() {
         </div>
       )}
 
+      {/* Low power warning */}
+      {gameState.lowPowerTimer > 0 && (
+        <div style={{
+          background: gameState.lowPowerTimer > LOW_POWER_GRACE_S ? '#5a0000' : '#3a1a00',
+          color: gameState.lowPowerTimer > LOW_POWER_GRACE_S ? 'var(--danger)' : 'var(--warning)',
+          padding: '4px 12px', fontSize: '0.78rem', textAlign: 'center',
+          borderBottom: `1px solid ${gameState.lowPowerTimer > LOW_POWER_GRACE_S ? 'var(--danger)' : 'var(--warning)'}`,
+          fontWeight: 'bold', animation: gameState.lowPowerTimer > LOW_POWER_GRACE_S ? 'blink 0.6s step-start infinite' : 'none',
+        }}>
+          ⚡ LOW POWER — {gameState.reactor.powerOutput.toFixed(0)}% output
+          {gameState.lowPowerTimer <= LOW_POWER_GRACE_S
+            ? ` — restore above 25% within ${Math.ceil(LOW_POWER_GRACE_S - gameState.lowPowerTimer)}s`
+            : ` — PENALTY ACTIVE — game over in ${Math.ceil(30 - gameState.lowPowerTimer)}s`}
+        </div>
+      )}
+
       {/* Disconnected player banner */}
       {disconnectedRoles.length > 0 && (
         <div style={{
@@ -87,6 +103,9 @@ export function GameScreen() {
         <span className="timer">{formatTime(Math.max(0, timeRemaining))}</span>
         <span style={{ color: 'var(--text-dim)', fontSize: '0.7rem' }}>
           {assignedRoles.map(r => ROLE_LABELS[r]).join(' + ')}
+        </span>
+        <span style={{ fontSize: '0.7rem', color: gameState.emergencyActionsLeft === 0 ? 'var(--danger)' : 'var(--text-dim)' }}>
+          ⚠ Emergency: {gameState.emergencyActionsLeft}/{DIFFICULTY_CONFIG[gameState.difficulty].emergencyPool}
         </span>
       </div>
 

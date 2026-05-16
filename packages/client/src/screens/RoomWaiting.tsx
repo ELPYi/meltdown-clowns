@@ -1,17 +1,33 @@
 import React from 'react';
 import { useLobbyStore } from '../stores/lobby-store.js';
-import { ALL_ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS, Role } from '@meltdown/shared';
+import { useConnectionStore } from '../stores/connection-store.js';
+import { ALL_ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS, Role, Difficulty, DIFFICULTY_CONFIG } from '@meltdown/shared';
 import { playClick, playSwitch, playThunk } from '../audio/sound-manager.js';
+
+const DIFFICULTIES = [Difficulty.Easy, Difficulty.Normal, Difficulty.Hard, Difficulty.Impossible];
+
+const DIFFICULTY_COLORS: Record<Difficulty, string> = {
+  [Difficulty.Easy]: 'var(--safe)',
+  [Difficulty.Normal]: 'var(--warning)',
+  [Difficulty.Hard]: '#ff6600',
+  [Difficulty.Impossible]: 'var(--danger)',
+};
 
 export function RoomWaiting() {
   const room = useLobbyStore(s => s.currentRoom);
   const leaveRoom = useLobbyStore(s => s.leaveRoom);
   const selectRole = useLobbyStore(s => s.selectRole);
+  const setDifficulty = useLobbyStore(s => s.setDifficulty);
   const startGame = useLobbyStore(s => s.startGame);
+  const myName = useConnectionStore(s => s.playerName);
 
   if (!room) return null;
 
   const canStart = room.players.length >= 2;
+  const myPlayer = room.players.find(p => p.name === myName);
+  const isHost = myPlayer?.id === room.hostId || room.players[0]?.id === room.hostId;
+  const currentDifficulty = room.difficulty ?? Difficulty.Normal;
+  const diffConfig = DIFFICULTY_CONFIG[currentDifficulty];
 
   return (
     <div className="room-screen">
@@ -61,6 +77,37 @@ export function RoomWaiting() {
               <p>{ROLE_DESCRIPTIONS[role]}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="control-section">
+        <h3>Difficulty</h3>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+          {DIFFICULTIES.map(d => (
+            <button
+              key={d}
+              className="btn btn-small"
+              style={{
+                borderColor: DIFFICULTY_COLORS[d],
+                color: d === currentDifficulty ? '#000' : DIFFICULTY_COLORS[d],
+                background: d === currentDifficulty ? DIFFICULTY_COLORS[d] : 'transparent',
+                opacity: !isHost && d !== currentDifficulty ? 0.4 : 1,
+              }}
+              disabled={!isHost}
+              onClick={() => { playClick(); setDifficulty(d); }}
+            >
+              {DIFFICULTY_CONFIG[d].label}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', lineHeight: 1.6 }}>
+          <span style={{ color: DIFFICULTY_COLORS[currentDifficulty], fontWeight: 'bold' }}>
+            {diffConfig.label}
+          </span>
+          {' · '}Score ×{diffConfig.multiplier}
+          {' · '}Emergency pool: {diffConfig.emergencyPool === 0 ? 'None' : diffConfig.emergencyPool}
+          {' · '}Failure limit: {diffConfig.failureThreshold === 0 ? 'Any = game over' : `${Math.round(diffConfig.failureThreshold * 100)}%`}
+          {!isHost && <span style={{ marginLeft: 8, color: 'var(--text-dim)' }}>(host sets difficulty)</span>}
         </div>
       </div>
 

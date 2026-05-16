@@ -7,6 +7,7 @@ import {
   ROLE_COMBINATIONS,
   MAX_PLAYERS,
   MIN_PLAYERS,
+  Difficulty,
 } from '@meltdown/shared';
 import { sendTo, broadcast, isConnected, getAllConnectedIds } from '../ws/message-router.js';
 
@@ -18,6 +19,7 @@ interface Room {
   maxPlayers: number;
   inGame: boolean;
   createdAt: number;
+  difficulty: Difficulty;
 }
 
 const rooms = new Map<string, Room>();
@@ -25,6 +27,19 @@ const playerRooms = new Map<string, string>(); // playerId -> roomId
 const playerNames = new Map<string, string>(); // playerId -> name
 
 let roomCounter = 0;
+
+export function setRoomDifficulty(playerId: string, difficulty: Difficulty): void {
+  const roomId = playerRooms.get(playerId);
+  if (!roomId) return;
+  const room = rooms.get(roomId);
+  if (!room || room.hostId !== playerId || room.inGame) return;
+  room.difficulty = difficulty;
+  sendRoomUpdate(room);
+}
+
+export function getRoomDifficulty(roomId: string): Difficulty {
+  return rooms.get(roomId)?.difficulty ?? Difficulty.Normal;
+}
 
 export function getPlayerName(playerId: string): string {
   return playerNames.get(playerId) ?? 'Unknown';
@@ -46,6 +61,7 @@ export function createRoom(playerId: string, roomName: string): Room | null {
     maxPlayers: MAX_PLAYERS,
     inGame: false,
     createdAt: Date.now(),
+    difficulty: Difficulty.Normal,
   };
 
   const player: Player = {
@@ -263,6 +279,7 @@ function roomToDetail(room: Room): RoomDetail {
     hostId: room.hostId,
     maxPlayers: room.maxPlayers,
     inGame: room.inGame,
+    difficulty: room.difficulty,
   };
 }
 

@@ -1,7 +1,7 @@
 import { GameState, GameEvent, EventType } from '../types/game-state.js';
 import { Role } from '../types/roles.js';
 import { SeededRNG } from '../util/rng.js';
-import { TICK_DELTA, DIFFICULTY_SCALE, EVENT_RAMP_UP, MAX_ACTIVE_EVENTS, SENSOR_NOISE_TTL } from '../util/constants.js';
+import { TICK_DELTA, DIFFICULTY_SCALE, EVENT_RAMP_UP, MAX_ACTIVE_EVENTS, SENSOR_NOISE_TTL, DIFFICULTY_CONFIG } from '../util/constants.js';
 import { getEventFrequency, getSeverityWeights } from './phase-manager.js';
 
 interface CascadeEdge {
@@ -107,6 +107,23 @@ export function tickEvents(state: GameState, rng: SeededRNG): void {
     if (state.gameTime >= event.deadline) {
       applyConsequence(state, event, rng);
       event.consequenceApplied = true;
+      state.failedEventCount++;
+
+      if (!state.gameOver) {
+        const config = DIFFICULTY_CONFIG[state.difficulty];
+        if (config.failureThreshold === 0) {
+          state.gameOver = true;
+          state.won = false;
+          state.gameOverReason = 'Zero tolerance exceeded — any failure is fatal on Impossible!';
+        } else if (state.totalEventCount >= 5) {
+          const failureRate = state.failedEventCount / state.totalEventCount;
+          if (failureRate > config.failureThreshold) {
+            state.gameOver = true;
+            state.won = false;
+            state.gameOverReason = `Too many events failed — exceeded ${Math.round(config.failureThreshold * 100)}% failure threshold!`;
+          }
+        }
+      }
     }
   }
 

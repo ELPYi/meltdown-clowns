@@ -1,5 +1,8 @@
 import { ReactorState, GameState, GamePhase } from '../types/game-state.js';
-import { TICK_DELTA, CRITICAL_TEMP, CRITICAL_TEMP_HOLD, GAME_DURATION_S } from '../util/constants.js';
+import {
+  TICK_DELTA, CRITICAL_TEMP, CRITICAL_TEMP_HOLD, GAME_DURATION_S,
+  MIN_POWER_THRESHOLD, LOW_POWER_GRACE_S, LOW_POWER_GAME_OVER_S, LOW_POWER_PENALTY_PER_S,
+} from '../util/constants.js';
 
 /**
  * Core reactor physics simulation. Runs every tick (50ms).
@@ -91,6 +94,30 @@ export function tickReactor(state: GameState): void {
     state.criticalTempTimer += dt;
   } else {
     state.criticalTempTimer = Math.max(0, state.criticalTempTimer - dt * 2);
+  }
+
+  // Track average power output for scoring
+  state.powerOutputSum += r.powerOutput;
+  state.powerOutputTicks++;
+
+  // SCRAM protection countdown
+  if (state.scramProtectionTimer > 0) {
+    state.scramProtectionTimer = Math.max(0, state.scramProtectionTimer - dt);
+  }
+
+  // Low power warning/penalty/game-over
+  if (r.powerOutput < MIN_POWER_THRESHOLD && state.scramProtectionTimer <= 0) {
+    state.lowPowerTimer += dt;
+    if (state.lowPowerTimer > LOW_POWER_GRACE_S) {
+      state.lowPowerPenalty += LOW_POWER_PENALTY_PER_S * dt;
+      if (state.lowPowerTimer >= LOW_POWER_GAME_OVER_S && !state.gameOver) {
+        state.gameOver = true;
+        state.won = false;
+        state.gameOverReason = 'Power output critically low for too long — reactor shutdown!';
+      }
+    }
+  } else {
+    state.lowPowerTimer = 0;
   }
 
   // Check game-over conditions

@@ -18,6 +18,8 @@ import {
   getPlayerRoom,
   endGame,
   getRoomPlayerIds,
+  setRoomDifficulty,
+  getRoomDifficulty,
 } from './lobby/lobby-manager.js';
 import { GameSession } from './game/game-session.js';
 
@@ -124,6 +126,10 @@ async function main() {
         selectRole(playerId, message.role);
         break;
 
+      case 'set-difficulty':
+        setRoomDifficulty(playerId, message.difficulty);
+        break;
+
       case 'start-game': {
         const result = startGame(playerId);
         if (!result.started) {
@@ -132,10 +138,12 @@ async function main() {
         }
         if (result.room && result.assignments) {
           const playerIds = getRoomPlayerIds(result.room.id);
+          const difficulty = getRoomDifficulty(result.room.id);
           const session = new GameSession(
             result.room.id,
             playerIds,
             result.assignments,
+            difficulty,
             (s) => {
               gameSessions.delete(result.room!.id);
               endGame(result.room!.id);

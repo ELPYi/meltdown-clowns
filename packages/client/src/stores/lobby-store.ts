@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { RoomInfo, RoomDetail, Role } from '@meltdown/shared';
+import { RoomInfo, RoomDetail, Role, Difficulty } from '@meltdown/shared';
 import { send } from '../network/ws-client.js';
 
 interface LobbyState {
@@ -11,6 +11,7 @@ interface LobbyState {
   joinRoom: (roomId: string) => void;
   leaveRoom: () => void;
   selectRole: (role: Role) => void;
+  setDifficulty: (difficulty: Difficulty) => void;
   startGame: () => void;
   refreshLobby: () => void;
 }
@@ -37,6 +38,10 @@ export const useLobbyStore = create<LobbyState>((set) => ({
 
   selectRole: (role: Role) => {
     send({ type: 'select-role', role });
+  },
+
+  setDifficulty: (difficulty: Difficulty) => {
+    send({ type: 'set-difficulty', difficulty });
   },
 
   startGame: () => {

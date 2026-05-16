@@ -1,4 +1,5 @@
 import { Role } from './roles.js';
+import { Difficulty, DIFFICULTY_CONFIG } from '../util/constants.js';
 
 export interface SensorNoise {
   active: boolean;
@@ -98,6 +99,7 @@ export interface GameState {
   activeEvents: GameEvent[];
   resolvedEventCount: number;
   totalEventCount: number;
+  failedEventCount: number;
   playerCount: number;
   gameOver: boolean;
   won: boolean;
@@ -105,6 +107,16 @@ export interface GameState {
   criticalTempTimer: number;  // seconds at critical temp
   sensorNoise: SensorNoise;
   disconnectedRoles: Role[];  // roles whose players have disconnected
+
+  // Difficulty & scoring
+  difficulty: Difficulty;
+  emergencyActionsLeft: number;
+  emergencyActionsUsed: number;
+  powerOutputSum: number;
+  powerOutputTicks: number;
+  lowPowerTimer: number;
+  scramProtectionTimer: number;
+  lowPowerPenalty: number;
 }
 
 export function createInitialReactorState(): ReactorState {
@@ -122,7 +134,11 @@ export function createInitialReactorState(): ReactorState {
   };
 }
 
-export function createInitialGameState(sessionId: string, playerCount: number): GameState {
+export function createInitialGameState(
+  sessionId: string,
+  playerCount: number,
+  difficulty: Difficulty = Difficulty.Normal,
+): GameState {
   return {
     sessionId,
     phase: GamePhase.StableOperations,
@@ -133,6 +149,7 @@ export function createInitialGameState(sessionId: string, playerCount: number): 
     activeEvents: [],
     resolvedEventCount: 0,
     totalEventCount: 0,
+    failedEventCount: 0,
     playerCount,
     gameOver: false,
     won: false,
@@ -143,8 +160,18 @@ export function createInitialGameState(sessionId: string, playerCount: number): 
       offsets: { temperature: 0, pressure: 0, radiation: 0, coolantLevel: 0, containment: 0 },
     },
     disconnectedRoles: [],
+    difficulty,
+    emergencyActionsLeft: DIFFICULTY_CONFIG[difficulty].emergencyPool,
+    emergencyActionsUsed: 0,
+    powerOutputSum: 0,
+    powerOutputTicks: 0,
+    lowPowerTimer: 0,
+    scramProtectionTimer: 0,
+    lowPowerPenalty: 0,
   };
 }
+
+export { Difficulty };
 
 function createDefaultSubsystems(): SubsystemStatus[] {
   return [
