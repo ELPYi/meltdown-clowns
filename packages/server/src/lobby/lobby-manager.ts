@@ -136,11 +136,18 @@ export function selectRole(playerId: string, role: Role): void {
   const player = room.players.get(playerId);
   if (!player) return;
 
-  // Toggle role selection
   const idx = player.selectedRoles.indexOf(role);
   if (idx >= 0) {
+    // Deselect own role
     player.selectedRoles.splice(idx, 1);
   } else {
+    // With 4 or fewer players each role must be unique; 5+ players may share
+    if (room.players.size <= 4) {
+      const takenByOther = [...room.players.values()].some(
+        p => p.id !== playerId && p.selectedRoles.includes(role)
+      );
+      if (takenByOther) return;
+    }
     player.selectedRoles.push(role);
   }
 
@@ -153,6 +160,10 @@ export function canStartGame(roomId: string): { canStart: boolean; reason?: stri
   if (room.inGame) return { canStart: false, reason: 'Game already in progress' };
   if (room.players.size < MIN_PLAYERS) {
     return { canStart: false, reason: `Need at least ${MIN_PLAYERS} players` };
+  }
+  const missingRole = [...room.players.values()].find(p => p.selectedRoles.length === 0);
+  if (missingRole) {
+    return { canStart: false, reason: 'All players must select a role' };
   }
   return { canStart: true };
 }

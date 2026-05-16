@@ -8,9 +8,10 @@ import { playBeep, playDiagnosticScan } from '../../audio/sound-manager.js';
 
 interface Props {
   gameState: GameState;
+  hideNoiseAlert?: boolean;
 }
 
-export function TechnicianPanel({ gameState }: Props) {
+export function TechnicianPanel({ gameState, hideNoiseAlert = false }: Props) {
   const sendAction = useGameStore(s => s.sendAction);
   const diagnosticResult = useGameStore(s => s.diagnosticResult);
   const clearDiagnosticResult = useGameStore(s => s.clearDiagnosticResult);
@@ -21,7 +22,7 @@ export function TechnicianPanel({ gameState }: Props) {
   return (
     <div>
       {/* Sensor noise warning */}
-      {noise.active && (
+      {noise.active && !hideNoiseAlert && (
         <div style={{
           background: '#3a1a00', border: '1px solid var(--warning)',
           borderRadius: 4, padding: '6px 10px', marginBottom: 8,
